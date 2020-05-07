@@ -73,6 +73,7 @@ module "eks" {
     kubernetes = kubernetes.eks
   }
 
+  manage_aws_auth = true
   cluster_name    = var.cluster_name
   subnets         = module.vpc.private_subnets
   vpc_id          = module.vpc.vpc_id
@@ -84,6 +85,7 @@ module "eks" {
   worker_groups = [
     {
       instance_type         = "t3.small"
+      disk_size             = "5Gi"
       asg_desired_capacity  = 1
       asg_min_size          = 1
       asg_max_size          = 1
