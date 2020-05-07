@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: atlantis
+spec:
+  template:
+    spec:
+      containers:
+      - name: atlantis
+        env:
+          - name: ATLANTIS_REPO_WHITELIST
+            value: github.com/gyant/*
+          - name: ATLANTIS_GH_USER
+            value: gyant
+          - name: ATLANTIS_GH_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: atlantis
+                key: token
+          - name: ATLANTIS_GH_WEBHOOK_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: atlantis
+                key: webhook-secret
+          - name: GIT_SSH_COMMAND
+            value: "ssh -i /home/atlantis/.ssh/atlantis.pem -o 'StrictHostKeyChecking no'"
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: aws
+                key: access-key
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: aws
+                key: secret-key
+        volumeMounts:
+        - name: ssh-key
+          mountPath: "/home/atlantis/.ssh"
+          readOnly: true
+      volumes:
+      - name: ssh-key
+        secret:
+          secretName: ssh-key
