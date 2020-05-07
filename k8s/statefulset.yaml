@@ -7,6 +7,13 @@ spec:
     spec:
       containers:
       - name: atlantis
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            memory: 2048Mi
+            cpu: 2000m
         env:
           - name: ATLANTIS_REPO_WHITELIST
             value: github.com/gyant/*
