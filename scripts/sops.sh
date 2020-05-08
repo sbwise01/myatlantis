@@ -38,8 +38,6 @@ fi
 
 OPERATION=$1
 
-secrets_files=$()
-
 # Check dependencies
 sops_exists=$(command -v sops)
 if [ -z "$sops_exists" ]; then
