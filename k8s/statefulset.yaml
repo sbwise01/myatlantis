@@ -16,9 +16,9 @@ spec:
             cpu: 2000m
         env:
           - name: ATLANTIS_REPO_WHITELIST
-            value: github.com/gyant/*
+            value: github.com/sbwise01/*
           - name: ATLANTIS_GH_USER
-            value: gyant
+            value: sbwise01
           - name: ATLANTIS_GH_TOKEN
             valueFrom:
               secretKeyRef:
