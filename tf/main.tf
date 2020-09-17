@@ -9,14 +9,31 @@ terraform {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
 provider "aws" {
   region  = "us-west-2"
   profile = "foghorn-io-brad"
   version = "~> 2.45"
 }
 
+resource "random_string" "suffix" {
+  length  = 4
+  special = false
+}
+
 variable "cluster_name" {
   default = "atlantis"
+}
+
+locals {
+  cluster_name = "${var.cluster_name}-eks-${random_string.suffix.result}"
+  tags         = {
+    Name        = var.cluster_name
+    Terraform   = "true"
+    Environment = "poc"
+  }
+  eks_map_accounts = list(data.aws_caller_identity.current.account_id)
 }
 
 variable "zones" {
@@ -34,21 +51,18 @@ module "vpc" {
   public_subnets  = ["10.11.3.0/24", "10.11.4.0/24", "10.11.5.0/24"]
 
   public_subnet_tags = {
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-    "kubernetes.io/role/elb"                    = "1"
+    "kubernetes.io/cluster/${local.cluster_name}" = "shared"
+    "kubernetes.io/role/elb"                      = "1"
   }
 
   private_subnet_tags = {
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-    "kubernetes.io/role/internal-elb"           = "1"
+    "kubernetes.io/cluster/${local.cluster_name}" = "shared"
+    "kubernetes.io/role/internal-elb"             = "1"
   }
 
   enable_nat_gateway = true
 
-  tags = {
-    Terraform   = "true"
-    Environment = "poc"
-  }
+  tags = local.tags
 }
 
 data "aws_eks_cluster" "eks" {
@@ -69,14 +83,15 @@ provider "kubernetes" {
 }
 
 module "eks" {
-  source = "git@github.com:terraform-aws-modules/terraform-aws-eks.git?ref=v9.0.0"
+  #source = "git@github.com:terraform-aws-modules/terraform-aws-eks.git?ref=v9.0.0"
+  source = "./modules/terraform-aws-eks"
 
   providers = {
     kubernetes = kubernetes.eks
   }
 
   manage_aws_auth = true
-  cluster_name    = var.cluster_name
+  cluster_name    = local.cluster_name
   subnets         = module.vpc.private_subnets
   vpc_id          = module.vpc.vpc_id
   cluster_version = "1.15"
@@ -95,26 +110,79 @@ module "eks" {
       protect_from_scale_in = false
     },
   ]
-}
 
-resource "aws_iam_user" "atlantis" {
-  name = "atlantis"
-}
+  workers_group_defaults = {
+    tags = [
+      {
+        key                 = "k8s.io/cluster-autoscaler/enabled"
+        value               = "true"
+        propagate_at_launch = true
+      },
+      {
+        key                 = "k8s.io/cluster-autoscaler/${local.cluster_name}"
+        value               = "true"
+        propagate_at_launch = true
+      }
+    ]
+  }
 
-resource "aws_iam_access_key" "atlantis" {
-  user    = aws_iam_user.atlantis.name
-  pgp_key = "keybase:fogopsbrad"
+  cluster_enabled_log_types = [
+    "api",
+    "audit",
+    "authenticator",
+    "controllerManager",
+    "scheduler"
+  ]
+
+  map_accounts    = local.eks_map_accounts
+  create_eks      = true
+  enable_irsa     = true
+
+  tags = merge(local.tags, map("kubernetes.io/cluster/${local.cluster_name}", "shared"))
 }
 
 data "aws_iam_policy" "admin" {
   arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
 
-resource "aws_iam_user_policy" "atlantis" {
-  name = "admin"
-  user = aws_iam_user.atlantis.name
+resource "aws_iam_role" "atlantis" {
+  name               = "${local.cluster_name}_oidc-atlantis"
+  tags               = local.tags
+  assume_role_policy = data.aws_iam_policy_document.trust_policy.json
+}
 
-  policy = data.aws_iam_policy.admin.policy
+resource "aws_iam_role_policy_attachment" "atlantis-policy" {
+  role       = aws_iam_role.atlantis.name
+  policy_arn = data.aws_iam_policy.admin.arn
+}
+
+data "aws_iam_policy_document" "trust_policy" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [module.eks.oidc_provider_arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(module.eks.oidc_provider_arn, "/arn:aws:iam::[0-9]{12}:oidc-provider\\//", "")}:sub"
+      values   = ["system:serviceaccount:default:atlantis"]
+    }
+  }
+}
+
+resource "kubernetes_service_account" "service_accounts" {
+  provider = kubernetes.eks
+
+  automount_service_account_token = true
+  metadata {
+    name      = "atlantis"
+    namespace = "default"
+    annotations = {
+      "eks.amazonaws.com/role-arn" = aws_iam_role.atlantis.arn
+    }
+  }
 }
 
 resource "aws_route53_zone" "zone" {
@@ -146,8 +214,4 @@ resource "aws_acm_certificate_validation" "cert" {
 
 output "cert_arn" {
   value = aws_acm_certificate.cert.arn
-}
-
-output "atlantis_creds" {
-  value = aws_iam_access_key.atlantis
 }

@@ -5,6 +5,7 @@ metadata:
 spec:
   template:
     spec:
+      serviceAccountName: atlantis
       containers:
       - name: atlantis
         resources:
@@ -31,16 +32,6 @@ spec:
                 key: webhook-secret
           - name: GIT_SSH_COMMAND
             value: "ssh -i /home/atlantis/.ssh/atlantis.pem -o 'StrictHostKeyChecking no'"
-          - name: AWS_ACCESS_KEY_ID
-            valueFrom:
-              secretKeyRef:
-                name: aws
-                key: access-key
-          - name: AWS_SECRET_ACCESS_KEY
-            valueFrom:
-              secretKeyRef:
-                name: aws
-                key: secret-key
         volumeMounts:
         - name: ssh-key
           mountPath: "/home/atlantis/.ssh"
