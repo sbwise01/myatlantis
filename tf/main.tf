@@ -95,7 +95,23 @@ module "eks" {
   subnets         = module.vpc.private_subnets
   vpc_id          = module.vpc.vpc_id
   cluster_version = "1.15"
-  map_roles       = []
+  map_roles       = [
+    {
+      rolearn = aws_iam_role.atlantis.arn
+      username = "atlantis"
+      groups = ["system:masters"]
+    },
+    {
+      rolearn = "arn:aws:iam::238080251717:role/test-assumed-1"
+      username = "test-assumed-1"
+      groups = ["system:masters"]
+    #},
+    #{
+    #  rolearn = "arn:aws:iam::238080251717:role/test-assumed-2"
+    #  username = "test-assumed-1"
+    #  groups = ["system:masters"]
+    }
+  ]
 
   workers_additional_policies = []
 
