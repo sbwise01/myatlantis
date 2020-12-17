@@ -115,6 +115,8 @@ module "eks" {
 
   workers_additional_policies = []
 
+      #ami_id                = "ami-0e4209e662d291738" # 1.15
+      #ami_id                = "ami-0bc0d84cc396c4ff9" # 1.16
   worker_groups = [
     {
       instance_type         = "t3.small"
@@ -207,7 +209,8 @@ resource "aws_route53_zone" "zone" {
 }
 
 resource "aws_acm_certificate" "cert" {
-  domain_name       = "atlantis.aws.bradandmarsha.com"
+  domain_name       = "aws.bradandmarsha.com"
+  subject_alternative_names = ["*.aws.bradandmarsha.com"]
   validation_method = "DNS"
 
   lifecycle {
