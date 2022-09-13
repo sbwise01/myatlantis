@@ -4,8 +4,11 @@ kind: Kustomization
 bases:
 - github.com/runatlantis/atlantis//kustomize
 
-resources:
-- secrets.yaml
+#resources:
+#- secrets.yaml
+
+generators:
+- ./secrets-generator.yaml
 
 patchesStrategicMerge:
 - statefulset.yaml
