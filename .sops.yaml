@@ -1,2 +1,2 @@
 creation_rules:
-  - kms: arn:aws:kms:us-west-2:238080251717:key/a75a3b51-04d5-4cfd-9732-edd480ce8b8c
+  - kms: arn:aws:kms:us-west-2:712671171381:key/d7053274-ad73-4e65-afd1-4a41b2f03a69
